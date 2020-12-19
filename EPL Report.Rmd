@@ -1,0 +1,203 @@
+---
+title: "English Premier League Multiple Regression Analysis"
+author: "Andrei Velasevic"
+date: "21/12/2020"
+output: pdf_document
+---
+
+## Abstract
+
+  In the following report, an analysis was performed on data from the 2019/20 English Premier League season. The goal of the report was to see if any conclusive mutliple linear regression model can be fit to predict the rank of a midfielder in the league, given various predictors. A model was found by the BIC stepwise regression method to have five statistically relevant predictors. A look was taken at correlations between variables and multiple conclusions were made about the model. 
+
+
+## Key Words
+
+*English Premier League (EPL)*: England's top tier soccer league, where matches last a total of 90 minutes in regulation.\newline
+*Midfielder*: A position in soccer in which the player is positioned in the middle of the field and connects the defense with the offense in progressive play.
+
+
+## Introduction
+
+The English Premier League (EPL) which is arguably the most competitive soccer league in the world generates billions of dollars of revenue annually and is the highest viewership of any top tier soccer league. It consists of many of the world's best players and managers competing in a 38 game long season.
+
+The goal of this specific study is to report conclusions that can be drawn from analyzing data from the EPL. Specifically, a multiple linear regression is used to predict the rank of a midfield player in the league, based on various predictors taken from the league, such as (goals scored, assists, clean sheets, etc...). The goal is also to see which predictors are more significant in predicting the rank compared to others. 
+
+The data set that this report is referring to is an observation of the season-long information on players and their performance in the English Premier League. A comma separated values table of players and their performance in numerous categories will be assessed and analyzed. A general model will be fit with all potential predictors, following will be a method of stepwise regression to deduce a single model. Finally correlations will be looked at of the final model's predictor variables. 
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+library(tidyverse)
+library(knitr)
+library(broom)
+setwd("C:/Users/andre/OneDrive/Desktop/School/Junior Year/STA304/Final Project/2019-20 Season")
+playerdata = read.csv("england-premier-league-players-2019-to-2020-stats.csv")
+
+#create multiple linear regression to explain rank in league (midfielders) based on various predictors (fantasy idea is scrapped)
+
+#str(midfielderdata)
+
+#take out players who aren't midfielders:
+midfielderdata = playerdata[!(playerdata$position=="Defender" | playerdata$position=="Forward" | playerdata$position=="Goalkeeper"),]
+
+#take out unranked players:
+midfielderdata = midfielderdata %>% 
+  filter(midfielderdata$rank_in_league_top_midfielders != -1)
+
+#take out useless predictors:
+midfielderdata = midfielderdata %>% 
+  select(-c(rank_in_league_top_defenders, rank_in_league_top_attackers))
+
+#potential final dataset
+midfielderdata2 = midfielderdata %>% 
+  select(-c(minutes_played_away, minutes_played_home, appearances_away, appearances_home, goals_away, goals_home, assists_away, assists_home, penalty_misses, penalty_goals, clean_sheets_away, clean_sheets_home, conceded_away, conceded_home, goals_per_90_away, goals_per_90_home, min_per_match, min_per_card_overall))
+
+
+
+attach(midfielderdata2)
+
+```
+
+
+## Methodology (Data and Model)
+
+
+### Data:
+  The data presented in this report draws from real data taken from footystats.com based on the results of the 2019/20 season of the English Premier League. The data is all based on observations of players and their results/performances in the whole season. The data sets are formatted as comma separated files in excel, with the original set of players consisting of 615 observations of 46 variables. The data set contains all players registered in the league from the 2019/20 season, including all positions and players who did not play in the Premier League (but perhaps played in other leagues). In this report, the main focus is players who contributed to the English Premier League.
+  
+  Upon extracting the data from the website, it was modified to have less irrelevant variables and certain rows removed (due to N/A information). From the original data set, rows were removed of players who weren't midfielders as the main focus of this report is analysis of midfielders and how they ranked. Also, midfielders who had *-1* as the input for their rank were also removed (this is due to players who were registered, but did not play). Finally, whole columns were removed that did not provide relevant information to this topic, a list of the removed columns is provided in the appendix. 
+  
+  A preview of the data can be seen in Table 1. Table 1 shows a preview of the data set used in the analysis. In the preview, only the first six players are shown with the first eight observable variables. 
+  
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+
+kable(head(midfielderdata[,0:8]), caption="Midfielder Data")
+
+```
+### Model:
+  The model used to perform an analysis on the effects of numerous variables on the rank in the league of the midfielder is a multiple linear regression model (MLR). A regression analysis in the form of MLR has a model in the following form:
+  
+$$
+Y = \beta_0 + \beta_1x_1 + \beta_2x_2 + ... + \beta_px_p + \epsilon
+$$
+  Where $Y$ represents the variable to be predicted (rank in league), $\beta_0$ is meaningless since a rank given no predictors cannot be explained reasonably. Coefficient betas represent the relative change in rank with respect to $x_p$ which is the predictor variable. $\epsilon$ represents the error of the model, in other words the difference between the predicted values of $Y$ and the observed values. 
+  The reason for selecting this model is that all the variables chosen to predict rank are numerical and are statistically relevant in predicting rank. Therefore a linear model with multiple predictors provides a plausible explanation of how rank would change with respect to the model. Originally a full model was fit in order to perform backward stepwise regression and get a final model with only relevant predictor variables. A backward AIC regression was used which is a likelihood-based criterion for assessing models and balances goodness of fit and a penalty for model complexity. It is defined as:
+  
+$$AIC = 2[-logL(\hat{\beta_0}, \hat{\beta_1}, ..., \hat{\beta_p}, \hat{\sigma^2}|Y)+K]$$
+  Where $K=p+2$ is the number of parameters in the fitted model. In addition, a backward BIC regression was also used (Bayesion Information Criterion) in which:
+  
+$$BIC = -2logL(\hat{\beta_0}, \hat{\beta_1}, ..., \hat{\beta_p}, \hat{\sigma^2}|Y)+Klogn$$
+  BIC is useful since it penalizes complex models more heavily than AIC, meaning it favours simpler models.
+
+
+## Results
+
+  Firstly, a full model was created with all predictors.
+  
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+
+fullmodel = lm(rank_in_league_top_midfielders ~ age + minutes_played_overall +  appearances_overall + goals_overall + assists_overall + conceded_overall + red_cards_overall + min_per_goal_overall +min_per_conceded_overall + min_per_assist_overall + cards_per_90_overall + rank_in_club_top_scorer + goals_per_90_overall + assists_per_90_overall + clean_sheets_overall + conceded_per_90_overall + yellow_cards_overall + goals_involved_per_90_overall, data=midfielderdata2)
+
+#summary(fullmodel)
+```
+
+
+  A summary of both models chosen by the AIC backward regression and BIC backward regression models is shown in Tables 2 and 3 respectively.
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE, results="hide"}
+
+# backward AIC
+step(fullmodel, direction = "backward")
+```
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+
+aicmodel = lm(rank_in_league_top_midfielders~goals_overall+rank_in_club_top_scorer+conceded_per_90_overall+min_per_conceded_overall+min_per_assist_overall+goals_per_90_overall+goals_involved_per_90_overall)
+
+kable(tidy(aicmodel), caption="AIC Regression Model")
+
+AIC = round(AIC(aicmodel), 4)
+#BIC(aicmodel)
+correctedAIC = round(extractAIC(aicmodel), 4)
+#extractAIC(aicmodel)
+BIC = round(BIC(aicmodel), 4)
+```
+  According to the model created according to backwards AIC, and a significance level of 0.05, there are six significant variables in predicting the rank of a midfielder. These are goals overall, rank in the club (top scorer), conceded per 90 overall, minutes per assist overall, goals per 90 overall, and goals involved per 90 overall. According to this model, the only statistically insignificant predictors are goals overall and rank in club (top scorer). The proportion of variation in rank explained by the model is 0.7599. The $AIC$, $correctedAIC$, and $BIC$ values are `r AIC`, `r correctedAIC`, and `r BIC`.
+
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE, results="hide"}
+
+# backward BIC; n is the number of data points
+n = nrow(midfielderdata2)
+step(fullmodel, direction = "backward", k=log(n))
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+bicmodel = lm(rank_in_league_top_midfielders~conceded_per_90_overall + min_per_conceded_overall + min_per_assist_overall + goals_per_90_overall + goals_involved_per_90_overall)
+
+kable(tidy(bicmodel), caption="BIC Regression Model")
+
+
+AIC2 = round(AIC(bicmodel), 4)
+correctedAIC2 = round(extractAIC(bicmodel), 4)
+BIC2 = round(BIC(bicmodel), 4)
+```
+According to the BIC model, the model consists of the predictor variables conceded per 90 overall, minutes per conceded overall, minutes per assist overall, goals per 90 overall, and goals involved per 90 overall. In this model, all of the predictor variables are statistically significant in predicting the rank of a given midfielder. 0.7563 of the variation in rank is explained by the model. The $AIC$, $correctedAIC$, and $BIC$ values are `r AIC2`, `r correctedAIC2`, and `r BIC2`.
+
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+#pairwise scatterplots for larger model predictor variables
+pairs(rank_in_league_top_midfielders ~ goals_overall + rank_in_club_top_scorer + conceded_per_90_overall + min_per_conceded_overall + min_per_assist_overall + goals_per_90_overall + goals_involved_per_90_overall, data=midfielderdata2, gap=0.4,cex.labels=0.85)
+
+numericx=cbind(goals_overall, rank_in_club_top_scorer, conceded_per_90_overall, min_per_conceded_overall, min_per_assist_overall, goals_per_90_overall, goals_involved_per_90_overall)
+numericxy=cbind(rank_in_league_top_midfielders,numericx)
+```
+  According to a plot of the correlations, there is indication of high correlation between goals per 90 overall to goals overall (`r round(cor(goals_per_90_overall, goals_overall), 4)`), goals involved per 90 to goals overall (`r round(cor(goals_involved_per_90_overall, goals_overall), 4)`), and goals involved per 90 to goals per 90 overall (`r round(cor(goals_involved_per_90_overall, goals_per_90_overall), 4)`). There is also a noteworthy strong negative correlation between rank in club and goals overall (`r round(cor(rank_in_club_top_scorer, goals_overall), 4)`).
+
+
+## Discussion
+
+### Summary:
+  To find an ideal multiple linear regression model in estimating a prediction for a midfielder's rank in the league, backwards stepwise regression was performed on the data, and narrowed down possibilities to two potential models (one done by Aikaike's Information Criterion "AIC", and the other by Bayesian Information Criterion "BIC"). Observations were noted of various criteria from the models, and potential covariate predictors were observed. The figure with the correlations of variables was modeled after the AIC chosen model, regardless of whichever model was chosen. This is due to the fact that the AIC model had more potential predictor variables.
+
+### Conclusions:
+  After performing both AIC backward regression and BIC backward regression on a full model with all potential predictors, and comparing correlations in predictors, there can be several conclusions to be made from the analysis
+  
+  By observing the values of $R^2_{adj}$, $AIC$, $corrected AIC$, and $BIC$ a it can be said that the more accurate model is the one done by BIC. As could have been guessed, assists and goals are among the statistically relevant predictors for rank at the end of the season. Interestingly, even defense of a midfielder is considered (according to the model), where goals conceded per game is a statistically significant predictor. When referring to the figure of correlations, it is worth looking into a strong negative correlation between rank in club and goals overall. 
+  The predictors chosen through the BIC method are conceded goals per game, minutes per conceded overall, minutes per assist overall, goals per game overall, and goals involved in per game overall. All of the predictors are statistically significant at a level of 0.05.
+
+### Weaknesses & Next Steps:
+  A potential weakness in the model is high correlation between predictor variables may result in an inaccurate model. There were in total three variables in the model that showed relatively high correlation. There are other potential models that could perhaps provide a better fit. There are also various types of variable selecting methods that could influence the outcome of the fit which were not looked at throughout this report. 
+
+
+## Appendix
+
+**Removed columns from original dataset:**\newline
+- minutes played away\newline
+- minutes played home\newline
+- appearances away\newline
+- appearances home\newline
+- goals away\newline
+- goals home\newline
+- assists away\newline
+- assists home\newline
+- penalty misses\newline
+- penalty goals\newline
+- clean sheets away\newline
+- clean sheets home\newline
+- conceded away\newline
+- conceded home\newline
+- goals per 90 away\newline
+- goals per 90 home\newline
+- min per match\newline
+- min per card overall\newline
+
+
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+detach(midfielderdata2)
+```
+
+
+## References
+
+FootyStats. (2020, 12 8). Premier League. Retrieved from footystacks.org:
+  https://footystats.org/england/premier-league
